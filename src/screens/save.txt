@@ -1,0 +1,1008 @@
+prompt :
+
+"voici le code mon app react native avec expo 
+
+composant "home" :
+
+"import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import BouncyCheckbox from "react-native-bouncy-checkbox";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const saveQuests = async (quests) => {
+    try {
+        await AsyncStorage.setItem('quests', JSON.stringify(quests));
+    } catch (error) {
+        console.log("Error saving quests:", error);
+    }
+};
+
+// Fonction pour sauvegarder les points d'expérience
+const saveExperiencePoints = async (experiencePoints) => {
+    try {
+        await AsyncStorage.setItem('experiencePoints', JSON.stringify(experiencePoints));
+    } catch (error) {
+        console.log("Error saving experience points:", error);
+    }
+};
+
+
+const HomeScreen = ({ route }) => {
+    const navigation = useNavigation();
+    const [quests, setQuests] = useState([]);
+    const [experiencePoints, setExperiencePoints] = useState(0);
+
+
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const savedQuests = await AsyncStorage.getItem('quests');
+                if (savedQuests !== null) {
+                    setQuests(JSON.parse(savedQuests));
+                }
+
+                const savedExperiencePoints = await AsyncStorage.getItem('experiencePoints');
+                if (savedExperiencePoints !== null) {
+                    setExperiencePoints(parseInt(savedExperiencePoints));
+                }
+            } catch (error) {
+                console.log("Error loading data:", error);
+            }
+        };
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        saveQuests(quests);
+    }, [quests]);
+
+    useEffect(() => {
+        saveExperiencePoints(experiencePoints);
+    }, [experiencePoints]);
+
+
+
+
+    useEffect(() => {
+        if (route.params?.newQuest) {
+            const showQuestToday = shouldShowQuestToday(route.params.selectedDays, route.params.repeatInterval);
+            if (showQuestToday) {
+                setQuests([...quests, { id: Date.now(), title: route.params.newQuest, type: route.params.selectedType, completed: false, selectedDays: route.params.selectedDays, selectedCharacteristics: route.params.selectedCharacteristics  }]);
+            }
+        }
+    }, [route.params?.newQuest, route.params?.selectedType, route.params?.selectedCharacteristics, route.params?.selectedDays, route.params?.repeatInterval]);
+
+    const shouldShowQuestToday = (selectedDays, repeatInterval) => {
+        const today = new Date().getDay(); 
+        if (selectedDays.includes(getDayString(today))) {
+            return true;
+        }
+        if (repeatInterval === 'EveryTwoDays' && today % 2 === 0) {
+            return true;
+        }
+        return false;
+    };
+
+    const getDayString = (dayIndex) => {
+        const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+        return days[dayIndex];
+    };
+
+    const toggleQuestCompletion = (questId, questType) => {
+        const updatedQuests = quests.map(quest =>
+            quest.id === questId ? { ...quest, completed: !quest.completed } : quest
+        );
+        setQuests(updatedQuests);
+    
+        if (!quests.find(quest => quest.id === questId).completed) {
+            const pointsEarned = calculatePointsEarned(questType, false);
+            setExperiencePoints(experiencePoints + pointsEarned);
+        }
+    };
+
+    const deleteQuest = (questId) => {
+        const updatedQuests = quests.filter(quest => quest.id !== questId);
+        setQuests(updatedQuests);
+    };
+
+    const navigateToQuestDetail = (item) => {
+        navigation.navigate('QuestDetail', {
+            title: item.title,
+            type: item.type,
+            completed: item.completed,
+            pointsEarned: calculatePointsEarned(item.type, item.completed),
+            selectedDays: item.selectedDays,
+            repeatInterval: route.params.repeatInterval
+        });
+    };
+
+    const navigateToAddQuest = () => {
+        navigation.navigate('AddQuest');
+    };
+
+    const navigateToParam = () => {
+        navigation.navigate('Parametre');
+    };
+
+    const navigateToProfil = () => {
+        const totalQuests = quests.length;
+        const completedQuests = quests.filter(quest => quest.completed).length;
+        navigation.navigate('Profil', { totalQuests, completedQuests, experiencePoints, quests, });
+    };
+
+    const navigateToLogin = () => {
+        navigation.navigate('Login');
+    };
+
+    const calculatePointsEarned = (questType, completed) => {
+        let pointsEarned = 0;
+        if (!completed) {
+            switch (questType) {
+                case 'Sport':
+                    pointsEarned = 50;
+                    break;
+                case 'Quotidien':
+                    pointsEarned = 30;
+                    break;
+                case 'Reminder':
+                    pointsEarned = 20;
+                    break;
+                default:
+                    pointsEarned = 10;
+            }
+        }
+        return pointsEarned;
+    };
+
+    return (
+        <View style={styles.container}>
+            <Text style={styles.title}>QUÊTES</Text>
+            <FlatList
+                data={quests}
+                keyExtractor={item => item.id.toString()}
+                renderItem={({ item }) => (
+                    <View style={styles.questItem}>
+                        <BouncyCheckbox
+                            isChecked={item.completed}
+                            onPress={() => toggleQuestCompletion(item.id, item.type)}
+                            style={styles.checkbox}
+                        />
+                        <TouchableOpacity onPress={() => navigateToQuestDetail(item)}>
+                            <Text style={[styles.questTitle, item.completed && styles.completed]}>{item.title}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteQuest(item.id)}>
+                            <Text style={styles.delete}>supprimer</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            />
+            
+            <TouchableOpacity style={styles.paramButton} onPress={navigateToParam}>
+                <Text style={styles.paramText}>Réglages</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profilButton} onPress={navigateToProfil}>
+                <Text style={styles.profilText}>Statut</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.loginButton} onPress={navigateToLogin}>
+                <Text style={styles.loginText}>Connexion</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.addButton} onPress={navigateToAddQuest}>
+                <Text style={styles.addButtonText}>Ajouter une Quête</Text>
+            </TouchableOpacity>
+        
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        paddingTop: 60,
+        padding: 20,
+        backgroundColor: "#173c63"
+    },
+    title: {
+        color: "white",
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        alignSelf: 'center',
+    },
+    questItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    questTitle: {
+        color: 'white',
+        fontSize: 19,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        marginTop: 15,
+    },
+    completed: {
+        textDecorationLine: 'line-through',
+        opacity: 0.5,
+    },
+    delete: {
+        fontWeight: 'bold',
+        fontSize: 13,
+    },
+    addButton: {
+        backgroundColor: 'darkblue',
+        width: 150,
+        padding: 10,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginTop: 20,
+    },
+    addButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    paramButton: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        color: "white",
+    },
+    paramText: {
+        color: "white",
+        fontSize: 20,
+    },
+    profilButton: {
+        position: 'absolute',
+        top: 10,
+        left: 5,
+        color: "white",
+    },
+    profilText: {
+        color: "white",
+        fontSize: 20,
+    },
+    loginButton: {
+        position: 'absolute',
+        top: 35,
+        right: 10,
+        color: "white",
+    },
+    loginText: {
+        color: "white",
+        fontSize: 20,
+    },
+    checkbox: {
+        marginLeft: 10,
+    },
+});
+
+export default HomeScreen;"
+
+composant "profil" :
+
+"import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const initialCharacteristics = {
+    force: 0,
+    agilite: 0,
+    intelligence: 0,
+    personnalité: 0,
+    determination: 0,
+    vitesse: 0,
+};
+
+const getRank = (level) => {
+    const ranks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+    const index = Math.min(Math.floor((level - 1) / 10), ranks.length - 1);
+    return ranks[index];
+};
+
+const Profil = ({ route }) => {
+    const { totalQuests, completedQuests, experiencePoints: initialExperiencePoints, quests = [] } = route.params;
+
+    const [level, setLevel] = useState(1);
+    const [rank, setRank] = useState('F');
+    const [characteristics, setCharacteristics] = useState(initialCharacteristics);
+    const [completedQuestIds, setCompletedQuestIds] = useState([]);
+    const [profileImage, setProfileImage] = useState(null);
+    const [experiencePoints, setExperiencePoints] = useState(initialExperiencePoints || 0);
+    const [username, setUsername] = useState('');
+    const [isEditingUsername, setIsEditingUsername] = useState(false);
+
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const savedLevel = await AsyncStorage.getItem('level');
+                const savedCharacteristics = await AsyncStorage.getItem('characteristics');
+                const savedCompletedQuestIds = await AsyncStorage.getItem('completedQuestIds');
+                const savedExperiencePoints = await AsyncStorage.getItem('experiencePoints');
+                const savedUsername = await AsyncStorage.getItem('username');
+
+                if (savedLevel !== null) setLevel(parseInt(savedLevel));
+                if (savedCharacteristics !== null) setCharacteristics(JSON.parse(savedCharacteristics));
+                if (savedCompletedQuestIds !== null) setCompletedQuestIds(JSON.parse(savedCompletedQuestIds));
+                if (savedExperiencePoints !== null) setExperiencePoints(parseInt(savedExperiencePoints));
+                if (savedUsername !== null) setUsername(savedUsername);
+            } catch (error) {
+                console.log("Error loading data:", error);
+            }
+        };
+
+        loadData();
+    }, []);
+
+    useEffect(() => {
+        const saveData = async () => {
+            try {
+                await AsyncStorage.setItem('level', level.toString());
+                await AsyncStorage.setItem('characteristics', JSON.stringify(characteristics));
+                await AsyncStorage.setItem('completedQuestIds', JSON.stringify(completedQuestIds));
+                await AsyncStorage.setItem('experiencePoints', experiencePoints.toString());
+                await AsyncStorage.setItem('username', username);
+            } catch (error) {
+                console.log("Erreur lors de la sauvegarde des données :", error);
+            }
+        };
+        saveData();
+    }, [level, characteristics, completedQuestIds, experiencePoints, username]);
+
+    useEffect(() => {
+        const loadProfileImage = async () => {
+            try {
+                const savedProfileImage = await AsyncStorage.getItem('profileImage');
+                if (savedProfileImage !== null) {
+                    setProfileImage(savedProfileImage);
+                }
+            } catch (error) {
+                console.log("Error loading profile image:", error);
+            }
+        };
+
+        loadProfileImage();
+    }, []);
+
+    const pickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.granted === false) {
+            alert("Permission to access camera roll is required!");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setProfileImage(result.assets[0].uri);
+            await AsyncStorage.setItem('profileImage', result.assets[0].uri);
+        }
+    };
+
+    useEffect(() => {
+        const nextLevelThreshold = 100 * Math.pow(2, level - 1);
+        if (experiencePoints >= nextLevelThreshold) {
+            const newLevel = level + 1;
+            setLevel(newLevel);
+
+            const newCharacteristics = { ...characteristics };
+            const newCompletedQuestIds = [...completedQuestIds];
+
+            if (Array.isArray(quests)) {
+                console.log('Niveau augmenté ! Nouveau niveau :', newLevel);
+                console.log('Traitement des quêtes pour les points de caractéristiques :');
+                quests.forEach(quest => {
+                    if (quest.completed && !completedQuestIds.includes(quest.id)) {
+                        console.log('Traitement de la quête :', quest);
+                        if (Array.isArray(quest.selectedCharacteristics)) {
+                            quest.selectedCharacteristics.forEach(characteristic => {
+                                if (newCharacteristics.hasOwnProperty(characteristic)) {
+                                    console.log(`Augmentation de ${characteristic} de 1`);
+                                    newCharacteristics[characteristic] += 1;
+                                } else {
+                                    console.log(`Caractéristique inconnue : ${characteristic}`);
+                                }
+                            });
+                        } else {
+                            console.log(`Pas de caractéristiques sélectionnées pour cette quête : ${quest.title}`);
+                        }
+                        newCompletedQuestIds.push(quest.id);
+                    }
+                });
+            }
+            setCharacteristics(newCharacteristics);
+            setCompletedQuestIds(newCompletedQuestIds);
+        }
+    }, [experiencePoints, level, quests, completedQuestIds]);
+
+    useEffect(() => {
+        setRank(getRank(level));
+    }, [level]);
+
+    return (
+        <View style={styles.container}>
+            {isEditingUsername ? (
+                <TextInput
+                    style={styles.usernameInput}
+                    placeholder="Entrez votre nom d'utilisateur"
+                    placeholderTextColor="rgba(255, 255, 255, 0.6)"
+                    value={username}
+                    onChangeText={setUsername}
+                    onBlur={() => setIsEditingUsername(false)} // Hide input when it loses focus
+                />
+            ) : (
+                <TouchableOpacity onPress={() => setIsEditingUsername(true)}>
+                    <Text style={styles.usernameText}>{username || "Entrez votre nom d'utilisateur"}</Text>
+                </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
+                {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                ) : (
+                    <Text style={styles.addPhotoText}>Ajouter une photo</Text>
+                )}
+            </TouchableOpacity>
+            {/* <Text style={styles.title}>STATUS</Text> */}
+            <Text style={styles.description}>Niveau : {level}</Text>
+            <Text style={styles.description}>Rank : {rank}</Text>
+
+            <Text style={styles.description}>QUESTS : {totalQuests - completedQuests}</Text>
+            <Text style={styles.description}>COMPLETED QUESTS : {completedQuests}</Text>
+            <Text style={styles.description}>Points d'expérience : {experiencePoints}</Text>
+
+            <Text style={styles.caracT}>Caractéristiques :</Text>
+
+            <View style={styles.characteristicsContainer}>
+                <View style={styles.characteristicsLeft}>
+                    <Text style={styles.carac}>Force : {characteristics.force}</Text>
+                    <Text style={styles.carac}>Agilité : {characteristics.agilite}</Text>
+                    <Text style={styles.carac}>Vitesse : {characteristics.vitesse}</Text>
+                </View>
+                <View style={styles.characteristicsRight}>
+                    <Text style={styles.caracD}>Intelligence : {characteristics.intelligence}</Text>
+                    <Text style={styles.caracD}>Personnalité : {characteristics.personnalité}</Text>
+                    <Text style={styles.caracD}>Détermination : {characteristics.determination}</Text>
+                </View>
+            </View>
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: "#173c63"
+    },
+    usernameInput: {
+        width: 'auto',
+        padding: 10,
+        borderColor: 'gray',
+        borderWidth: 1,
+        borderRadius: 5,
+        position: 'relative',
+        bottom: 150,
+        color: 'white',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        fontSize: 30,
+        textAlign: "center",
+    },
+    usernameText: {
+        fontSize: 30,
+        color: 'white',
+        position: 'relative',
+        bottom: 150,
+        textAlign: 'center',
+    },
+    profileImageContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+        bottom: 35,
+    },
+    profileImage: {
+        width: 200,
+        height: 200,
+        borderRadius: 50,
+        marginBottom: 90
+    },
+    addPhotoText: {
+        color: '#000',
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: 'white',
+        position: 'absolute',
+        top: 10,
+    },
+    description: {
+        fontSize: 18,
+        textAlign: 'center',
+        color: 'white',
+    },
+    caracT: {
+        fontSize: 21,
+        textAlign: 'center',
+        color: 'white',
+        margin: 15,
+        fontWeight: 'bold'
+    },
+    characteristicsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        paddingHorizontal: 20,
+    },
+    characteristicsLeft: {
+        alignItems: 'flex-start',
+        width: '48%',
+    },
+    characteristicsRight: {
+        alignItems: 'flex-end',
+        width: '48%',
+    },
+    carac: {
+        fontSize: 19,
+        textAlign: 'left',
+        color: 'white',
+    },
+    caracD: {
+        fontSize: 19,
+        textAlign: 'right',
+        color: 'white',
+    },
+});
+
+export default Profil;
+"
+
+le "app.js" :
+
+"import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import HomeScreen from './src/screens/Home';
+import QuestDetail from './src/screens/DetailsQuest';
+import AddQuest from './src/screens/AddQuest';
+import Parametre from './src/screens/Parametre';
+import Profil from './src/screens/Profil';
+import Login from './src/screens/Login';
+import Inscription from './src/screens/Inscription';
+
+
+const Stack = createNativeStackNavigator();
+
+// Fonction pour charger les quêtes sauvegardées
+const loadQuests = async () => {
+  try {
+      const quests = await AsyncStorage.getItem('quests');
+      if (quests !== null) {
+          setQuests(JSON.parse(quests));
+      }
+  } catch (error) {
+      console.log("Error loading quests:", error);
+  }
+};
+
+// Fonction pour charger les points d'expérience sauvegardés
+const loadExperiencePoints = async () => {
+  try {
+      const experiencePoints = await AsyncStorage.getItem('experiencePoints');
+      if (experiencePoints !== null) {
+          setExperiencePoints(JSON.parse(experiencePoints));
+      }
+  } catch (error) {
+      console.log("Error loading experience points:", error);
+  }
+};
+
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: "#173c63", 
+          },
+          headerTintColor: "#fff", 
+          headerTitleStyle: {
+            fontWeight: "bold",
+            fontSize: 24,
+            
+          },
+          headerTitleAlign: "center",
+        }}
+        initialRouteName="Home"
+      >
+        <Stack.Screen
+          name="Login"
+          component={Login}
+          options={{
+            title: "LOG IN"
+          }}
+        />
+        <Stack.Screen
+          name="Inscription"
+          component={Inscription}
+          options={{
+            title: "REJOINS LES PREDATEURS"
+          }}
+        />
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          // options={{ headerShown: false }}
+        />
+
+
+        <Stack.Screen
+          name="QuestDetail"
+          component={QuestDetail}
+          options={ {title: "QUEST INFO"} }
+        />
+        <Stack.Screen
+          name="AddQuest"
+          component={AddQuest}
+          options={{ title: 'Add Quest' }}
+        />
+
+        <Stack.Screen
+          name="Parametre"
+          component={Parametre}
+          options={{ title: 'Reglages' }}
+        />
+
+
+        <Stack.Screen
+          name="Profil"
+          component={Profil}
+          options={{ title: 'Status' }}
+        />
+
+{/* { headerShown: false } */}
+
+
+        
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+"
+
+composant  "paramètre" :
+
+"import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
+
+const Parametre = () => {
+
+
+    return (
+        <View style={styles.container}>
+        <Text style={styles.title}>Reglages</Text>
+        
+        </View>
+    );
+    };
+
+    const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: "#173c63"
+
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    description: {
+        fontSize: 18,
+        textAlign: 'center',
+    },
+    });
+
+export default Parametre;
+"
+et le composant "AddQuest" :
+
+"import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { useNavigation } from '@react-navigation/native';
+import BouncyCheckbox from "react-native-bouncy-checkbox";
+import moment from 'moment';
+
+const characteristicsByType = {
+    Sport: ['force', 'agilite', 'vitesse'],
+    Quotidien: ['intelligence', 'personnalité', 'determination']
+};
+
+const AddQuest = () => {
+    const [newQuest, setNewQuest] = useState('');
+    const [questType, setQuestType] = useState(null);
+    const [repeatInterval, setRepeatInterval] = useState(null);
+    const [selectedDays, setSelectedDays] = useState([]);
+    const [selectedCharacteristics, setSelectedCharacteristics] = useState([]);
+    const navigation = useNavigation();
+
+    const saveQuest = () => {
+        if (
+            newQuest.trim() !== '' && 
+            questType !== null && 
+            selectedCharacteristics.length > 0 &&
+            (
+                repeatInterval === null || 
+                repeatInterval === 'EveryTwoDays' ||  
+                (repeatInterval === 'Custom' && selectedDays.length > 0)
+            )
+        ) {
+
+            let calculatedDays = [];
+            if (repeatInterval === 'EveryTwoDays') {
+                calculatedDays = calculateEveryTwoDays();
+            }
+
+            console.log('Quête sauvegardée avec les caractéristiques suivantes:', selectedCharacteristics);
+
+            navigation.navigate('Home', { 
+                newQuest, 
+                selectedType: questType, 
+                repeatInterval, 
+                selectedDays: repeatInterval === 'EveryTwoDays' ? calculatedDays : selectedDays, 
+                selectedCharacteristics 
+            });
+        }
+    };
+
+    const calculateEveryTwoDays = () => {
+        const today = moment();
+        let days = [today.format('dddd')]; // Commence par aujourd'hui
+        for (let i = 2; i <= 6; i += 2) {
+            days.push(today.add(2, 'days').format('dddd')); // Ajoute chaque deux jours
+        }
+        return days;
+    };
+
+    const toggleDaySelection = (day) => {
+        if (selectedDays.includes(day)) {
+            setSelectedDays(selectedDays.filter(d => d !== day));
+        } else {
+            setSelectedDays([...selectedDays, day]);
+        }
+    };
+
+    const toggleCharacteristicSelection = (characteristic) => {
+        if (selectedCharacteristics.includes(characteristic)) {
+            setSelectedCharacteristics(selectedCharacteristics.filter(c => c !== characteristic));
+        } else {
+            setSelectedCharacteristics([...selectedCharacteristics, characteristic]);
+        }
+    };
+
+    return (
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+            <View style={styles.container}>
+                <TextInput
+                    style={styles.input}
+                    value={newQuest}
+                    onChangeText={text => setNewQuest(text)}
+                    placeholder="Enter new Quest"
+                />
+                <View style={styles.buttonContainer}>
+                    <TouchableOpacity
+                        style={[styles.button, questType === 'Sport' && styles.selectedButton]}
+                        onPress={() => setQuestType('Sport')}
+                    >
+                        <Text style={styles.buttonText}>Sport</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.button, questType === 'Quotidien' && styles.selectedButton]}
+                        onPress={() => setQuestType('Quotidien')}
+                    >
+                        <Text style={styles.buttonText}>Quotidien</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.button, questType === 'Reminder' && styles.selectedButton]}
+                        onPress={() => setQuestType('Reminder')}
+                    >
+                        <Text style={styles.buttonText}>Reminder</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {questType && (
+                    <View style={styles.characteristicsContainer}>
+                        <Text style={styles.characteristicsTitle}>Sélectionnez les caractéristiques :</Text>
+                        {characteristicsByType[questType].map((characteristic) => (
+                            <View key={characteristic} style={styles.characteristic}>
+                                <BouncyCheckbox
+                                    value={selectedCharacteristics.includes(characteristic)}
+                                    onPress={() => toggleCharacteristicSelection(characteristic)}
+                                />
+                                <Text>{characteristic}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                <Picker
+                    selectedValue={repeatInterval}
+                    onValueChange={(itemValue) => setRepeatInterval(itemValue)}
+                    style={styles.picker}
+                >
+                    <Picker.Item label="Tous les deux jours" value="EveryTwoDays" />
+                    <Picker.Item label="Custom" value="Custom" />
+                </Picker>
+                {repeatInterval === 'Custom' && (
+                    <View style={styles.daysContainer}>
+                        <Text style={styles.daysTitle}>Sélectionnez un jour :</Text>
+                        {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'].map(day => (
+                            <View key={day} style={styles.days}>
+                                <BouncyCheckbox
+                                    value={selectedDays.includes(day)}
+                                    onPress={() => toggleDaySelection(day)}
+                                />
+                                <Text>{day}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+                <TouchableOpacity style={styles.addButton} onPress={saveQuest}>
+                    <Text style={styles.addButtonText}>ADD Quest</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: "#173c63"
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContainer: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        color: "white",
+    },
+    input: {
+        fontSize: 25,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        backgroundColor: 'white',
+        width: '80%',
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        position: 'relative',
+        bottom: 70,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        marginBottom: 20,
+    },
+    button: {
+        backgroundColor: 'darkblue',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        marginRight: 10,
+        position: 'relative',
+        bottom: 40,
+    },
+    selectedButton: {
+        backgroundColor: 'blue',
+    },
+    buttonText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    addButton: {
+        backgroundColor: 'darkblue',
+        width: 150,
+        padding: 10,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 20,
+    },
+    addButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    picker: {
+        width: '80%',
+        backgroundColor: 'white',
+        borderRadius: 10,
+        marginBottom: 20,
+    },
+    characteristicsContainer: {
+        marginBottom: 20,
+        position: 'relative',
+        bottom: 20,
+    },
+    characteristicsTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: 'white',
+    },
+    characteristic: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 5,
+    },
+    daysContainer: {
+        marginBottom: 20,
+    },
+    daysTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: 'white',
+    },
+    days: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+});
+
+export default AddQuest;
+"
+
+
+comme tu le vois l'app garde en memoire sur l'appareil les données genre le niveau et caractéristiques et le rank ainsi que les quests , la photo de profil et le pseudo dde l'utilisateur.
+
+pour l'instant je suis encore en phase de developpeent et test donc pour tester l'app sur mon iphone je fait npx expo start et je scan le qr code , donc je suis amené a le faire plusieur fois et mes données sont bien sauvegardé a chaque fois et bien chargé quand je relancec l'app.
+
+mais temporairement pour les test je voudrais ajouter  dans le composant parametre une fonction pour supprimer les données genre ça affiche une liste avec toutes les données qui sont sauvegardé et que je coche ce que je veux supprimer et qu'en bas de cette liste il y ai un boutton "SUPPRIMER LES DONNEES SELECTIONNEE""
+
+
+

@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "LevelUp",
+    "slug": "levelup",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"] // Ajoutez les modes background requis
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": ["NOTIFICATIONS", "SYSTEM_ALERT_WINDOW", "RECEIVE_BOOT_COMPLETED"] // Ajoutez les autorisations nécessaires pour les notifications et les tâches en arrière-plan
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c58b214c-60f1-4d67-aaae-4c66061ce6ff"
+      }
+    },
+    "owner": "yacine.lab"
+  }
+}
